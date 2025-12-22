@@ -1,0 +1,28 @@
+task: evaluate
+
+api: qwen-plus
+
+model:
+  name: Llama3.2-1B-Instruct
+  path: ./Llama3.2-1B-Instruct
+
+data:
+  train_path: ./data/train-00000-of-00001.parquet
+  eval_path: ./data/test-00000-of-00001.parquet
+
+train:
+  epochs: 3
+  batch_size: 2
+  learning_rate: 3e-4
+
+evaluate:
+  batch_size: 8
+  max_new_tokens: 256
+  metrics:
+    - accuracy
+    - f1
+
+predict:
+  max_new_tokens: 64
+  temperature: 0.7
+

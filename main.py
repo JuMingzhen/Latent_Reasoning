@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 from run import run_train, run_evaluate, run_predict
@@ -56,6 +57,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def setup_logging(run_name: str, log_dir: Path = Path("logs")) -> Path:
+    """设置日志，同时输出到控制台和文件。"""
+    log_dir.mkdir(exist_ok=True)
+    
+    # 生成日志文件名：任务名_时间戳.log
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    log_file = log_dir / f"{run_name}_{timestamp}.log"
+    
+    # 使用 basicConfig 简化配置
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=[
+            logging.FileHandler(log_file, encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
+    )
+    
+    logging.info("Logging to file: %s", log_file)
+    return log_file
+
+
 def main() -> None:
     args = parse_args()
     config_path = args.config
@@ -68,12 +92,15 @@ def main() -> None:
     if not task:
         raise ValueError("Config must include a top-level 'task' field.")
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
+    # 获取任务名，如果未配置则使用任务类型
+    run_name = cfg.get("run_name", task)
+    
+    # 设置日志（同时输出到文件和控制台）
+    log_file = setup_logging(run_name)
     logging.info("Loaded config from %s", args.config)
+    logging.info("Task: %s, Run name: %s", task, run_name)
     run_task(task, cfg)
+    logging.info("Task completed. Log saved to: %s", log_file)
 
 
 if __name__ == "__main__":

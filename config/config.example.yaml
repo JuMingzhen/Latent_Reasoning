@@ -1,4 +1,5 @@
 task: evaluate
+run_name: gsm8k_eval_v1
 
 api: qwen-plus
 

@@ -15,16 +15,18 @@ from load import load_model, load_data
 class SFTDataset(Dataset):
     """SFT 训练数据集"""
     
-    def __init__(self, data_df, tokenizer, max_length=2048):
+    def __init__(self, data_df, tokenizer, max_length=2048, normalize_answer=True):
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.normalize_answer = normalize_answer
         self.data = []
         
         # 准备数据
         for idx in range(len(data_df)):
             question = data_df.iloc[idx]["question"]
             answer = data_df.iloc[idx]["answer"]
-            
+            if self.normalize_answer:
+                answer = self._normalize_answer(answer)
             # 构建对话格式
             system = (
                 "You are a math reasoning assistant. Solve the problem step by step. "
@@ -45,38 +47,26 @@ class SFTDataset(Dataset):
             )
             
             self.data.append(text)
-            
+
     def _normalize_answer(self, answer: str) -> str:
         """统一答案格式为 \boxed{} 格式"""
-        import re
-        
         # 如果已经有 \boxed{} 格式，保持不变
         if r'\boxed{' in answer:
             return answer
         
         # 尝试提取 #### 后面的数字
-        hash_match = re.search(r'####\s*(\d+)', answer)
+        hash_match = re.search(r'####\s*([\d,]+)', answer)
         if hash_match:
             final_answer = hash_match.group(1)
             # 如果答案不在末尾，添加到末尾
             if not answer.rstrip().endswith(f'#### {final_answer}'):
-                answer = answer.rstrip() + f'\n\n\\boxed{{{final_answer}}}'
+                answer = answer.rstrip() + f'\n\\boxed{{{final_answer}}}'
             else:
                 # 替换 #### 为 \boxed{}
-                answer = re.sub(r'####\s*(\d+)', r'\\boxed{\1}', answer)
+                answer = re.sub(r'####\s*([\d,]+)', r'\\boxed{\1}', answer)
             return answer
-        
-        # 尝试提取末尾的数字
-        num_match = re.search(r'(\d+)\s*$', answer.strip())
-        if num_match:
-            final_answer = num_match.group(1)
-            # 如果末尾没有 \boxed{}，添加
-            if r'\boxed{' not in answer:
-                answer = answer.rstrip() + f'\n\n\\boxed{{{final_answer}}}'
-            return answer
-        
-        # 如果无法提取，返回原答案（让模型学习原始格式）
         return answer
+
     def __len__(self):
         return len(self.data)
     
@@ -296,19 +286,19 @@ def run_train(cfg: Dict[str, Any]) -> None:
 #################### Evaluation #####################
 def extract_answer(model_output: str):
     """从模型输出中提取最终答案"""
-    boxed_pattern = re.compile(r'\\boxed\{(\d+)\}')
+    boxed_pattern = re.compile(r'\\boxed\{([\d,]+)\}')
     boxed_match = boxed_pattern.search(model_output)
     if boxed_match:
-        return int(boxed_match.group(1))
+        return int(boxed_match.group(1).strip().replace(",",""))
     
-    hash_pattern = re.compile(r'####\s*(\d+)')
+    hash_pattern = re.compile(r'####\s*([\d,]+)')
     hash_match = hash_pattern.search(model_output)
     if hash_match:
-        return int(hash_match.group(1))
-    pattern = re.compile(r'(\d+)\s*$')
+        return int(hash_match.group(1).strip().replace(",",""))
+    pattern = re.compile(r'([\d,]+)\s*$')
     match = pattern.search(model_output)
     if match:
-        return int(match.group(1))
+        return int(match.group(1).strip().replace(",",""))
     return None
 
 

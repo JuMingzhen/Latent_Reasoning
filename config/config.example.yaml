@@ -4,6 +4,7 @@ run_name: gsm8k_eval_v1
 api: qwen-plus # use only when evaluating through a LLM api online
 
 model:
+  SFT: False
   name: Llama3.2-1B-Instruct
   path: ./Llama3.2-1B-Instruct
 

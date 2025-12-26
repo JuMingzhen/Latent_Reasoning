@@ -1,0 +1,40 @@
+task: train
+run_name: gsm8k_SFT_v1
+
+api: False # use only when evaluating through a LLM api online
+
+model:
+  SFT: True
+  name: Llama3.2-1B-Instruct
+  path: ./Llama3.2-1B-Instruct
+
+data:
+  train_path: ./data/train-00000-of-00001.parquet
+  eval_path: ./data/test-00000-of-00001.parquet
+
+train:
+  epochs: 2  # GSM8K 训练集约 7473 样本，2-3 epochs 足够
+  batch_size: 4  # 1B 模型显存允许，从 2 增加到 4 提升训练效率
+  learning_rate: 1.5e-4  # LoRA 微调建议稍低的学习率，避免过拟合
+  gradient_accumulation_steps: 4  # 有效 batch_size = 4 * 4 = 16
+  max_length: 4096  # GSM8K 答案较长，2048 可能不够，建议 4096
+  save_steps: 200  # 约每 1/4 epoch 保存一次（7473/4/16 ≈ 117 steps/epoch）
+  output_dir: ./checkpoints
+  use_lora: true
+  lora_r: 16  # 从 8 增加到 16，提升模型容量（GSM8K 需要更强的推理能力）
+  lora_alpha: 32  # alpha = 2 * r，保持比例
+  lora_dropout: 0.05  # 保持，防止过拟合
+  merge_lora: false  # 保持不合并，节省空间
+  enable_thinking: true
+
+evaluate:
+  batch_size: 8
+  max_new_tokens: 256
+  metrics:
+    - accuracy
+    - f1
+
+predict:
+  max_new_tokens: 64
+  temperature: 0.7
+

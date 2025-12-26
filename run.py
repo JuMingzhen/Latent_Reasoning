@@ -132,6 +132,7 @@ def run_train(cfg: Dict[str, Any]) -> None:
     
     # 应用 LoRA（如果启用）
     if use_lora:
+        model.gradient_checkpointing_enable()
         try:
             from peft import LoraConfig, get_peft_model, TaskType
             logging.info("Applying LoRA for efficient fine-tuning")
@@ -321,8 +322,7 @@ def build_gsm8k_prompt(question: str, tokenizer = None) -> str:
         text = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=True
+            add_generation_prompt=True
         )
         return text
     return f"<s>[SYSTEM] {system}\n[USER] {question}\n[ASSISTANT]"
@@ -361,7 +361,7 @@ def calculate_gsm8k_accuracy(
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
-                max_length=1024,
+                max_length=2048,
             )
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
@@ -439,7 +439,8 @@ def run_evaluate(cfg: Dict[str, Any]) -> None:
         data_path = cfg['data']['eval_path']
         model_path = cfg['model']['path']
         data = load_data(data_path)
-        model, tokenizer, device = load_model(model_path)
+        sft = cfg['model']['SFT']
+        model, tokenizer, device = load_model(model_path, sft)
 
         batch_size = eval_params.get("batch_size", 8)
         max_new_tokens = eval_params.get("max_new_tokens", 128)

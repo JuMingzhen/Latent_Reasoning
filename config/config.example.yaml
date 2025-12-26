@@ -1,7 +1,7 @@
 task: evaluate
 run_name: gsm8k_eval_v1
 
-api: qwen-plus
+api: qwen-plus # use only when evaluating through a LLM api online
 
 model:
   name: Llama3.2-1B-Instruct
@@ -15,6 +15,15 @@ train:
   epochs: 3
   batch_size: 2
   learning_rate: 3e-4
+  gradient_accumulation_steps: 4  # 有效 batch_size = batch_size * gradient_accumulation_steps
+  max_length: 2048  # 最大序列长度
+  save_steps: 500  # 每多少步保存一次检查点（0表示不保存中间检查点）
+  output_dir: ./checkpoints  # 模型保存目录
+  use_lora: true  # 是否使用 LoRA 高效微调
+  lora_r: 8  # LoRA rank
+  lora_alpha: 16  # LoRA alpha
+  lora_dropout: 0.05  # LoRA dropout
+  merge_lora: false  # 训练结束后是否合并 LoRA 权重到基础模型
 
 evaluate:
   batch_size: 8

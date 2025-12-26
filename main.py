@@ -7,7 +7,7 @@ from typing import Any, Dict
 from run import run_train, run_evaluate, run_predict
 
 def load_config(path: Path) -> Dict[str, Any]:
-    """Load config from JSON or YAML (if PyYAML is installed)."""
+    """Load config from JSON or YAML."""
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 

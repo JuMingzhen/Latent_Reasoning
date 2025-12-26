@@ -124,15 +124,15 @@ def run_train(cfg: Dict[str, Any]) -> None:
     # 加载模型和 tokenizer
     logging.info(f"Loading model from {model_path}")
     model, tokenizer, device = load_model(model_path)
+    model.gradient_checkpointing_enable()
     
     # 设置 pad_token
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    
+
     # 应用 LoRA（如果启用）
     if use_lora:
-        model.gradient_checkpointing_enable()
         try:
             from peft import LoraConfig, get_peft_model, TaskType
             logging.info("Applying LoRA for efficient fine-tuning")
@@ -189,7 +189,8 @@ def run_train(cfg: Dict[str, Any]) -> None:
     model.train()
     global_step = 0
     total_loss = 0.0
-    
+    nan_count = 0
+
     logging.info("Starting training loop...")
     for epoch in range(epochs):
         epoch_loss = 0.0
@@ -214,14 +215,20 @@ def run_train(cfg: Dict[str, Any]) -> None:
                 attention_mask=attention_mask,
                 labels=labels
             )
-            
             loss = outputs.loss / gradient_accumulation_steps
-            loss.backward()
-            
+            if torch.isnan(loss) or torch.isinf(loss):
+                nan_count += 1
+                logging.warning(f"NaN/Inf loss detected at step {step}, skipping backward...")
+                # 清除已累积的梯度（重要！）
+                optimizer.zero_grad()
+                # 删除变量释放显存
+                del outputs, loss, input_ids, attention_mask, labels
+                continue  # 跳过这个 batch
+            loss.backward()            
             epoch_loss += loss.item() * gradient_accumulation_steps
             total_loss += loss.item() * gradient_accumulation_steps
-            
-            # 梯度累积
+
+            #梯度累积
             if (step + 1) % gradient_accumulation_steps == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
